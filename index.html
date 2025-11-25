@@ -765,6 +765,43 @@
             display: block;
         }
         
+        /* Стили для управления системой баллов */
+        .points-management-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .points-item.editing {
+            background: rgba(0, 188, 212, 0.2);
+            border-left: 4px solid var(--accent);
+        }
+        
+        .points-item-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .edit-points-form {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .points-editing .points-list {
+            display: none;
+        }
+        
+        .points-editing .edit-points-form {
+            display: block;
+        }
+        
         /* Адаптивность */
         @media (max-width: 1024px) {
             .content {
@@ -864,7 +901,7 @@
         }
     </style>
 </head>
-<body class="mode-user logged-out">
+<body class="mode-user logged-out admin-buttons-visible">
     <div class="container">
         <div class="auth-section">
             <button class="auth-btn login-btn" id="loginBtn">
@@ -896,7 +933,7 @@
                 <p><i class="fas fa-info-circle"></i> Вы в режиме администратора: управление пользователями, создание событий, редактирование баллов</p>
             </div>
             <div class="logged-out-only">
-                <p><i class="fas fa-info-circle"></i> Для доступа к функциям сайта войдите в свой профиль.</p>
+                <p><i class="fas fa-info-circle"></i> Для доступа к функциям сайта войдите в свой профиль. Кнопки администратора доступны для предварительного просмотра.</p>
             </div>
         </header>
 
@@ -981,30 +1018,33 @@
             </div>
 
             <div class="points-system">
-                <h2>📈 Система баллов</h2>
-                <div class="points-item">
-                    <span>Посещение домашнего матча</span>
-                    <span class="points-value">+50 баллов</span>
+                <div class="points-management-header">
+                    <h2>📈 Система баллов</h2>
+                    <div class="admin-only">
+                        <button id="addPointsBtn" class="btn-admin"><i class="fas fa-plus"></i> Добавить правило</button>
+                    </div>
                 </div>
-                <div class="points-item">
-                    <span>Посещение выездного матча</span>
-                    <span class="points-value">+100 баллов</span>
+                
+                <div class="admin-only">
+                    <form class="edit-points-form" id="pointsForm">
+                        <input type="hidden" id="pointsId">
+                        <div class="form-group">
+                            <label for="pointsDescription">Описание действия</label>
+                            <input type="text" id="pointsDescription" placeholder="Например: Посещение домашнего матча" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="pointsValue">Количество баллов</label>
+                            <input type="number" id="pointsValue" min="1" max="1000" value="50" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-admin"><i class="fas fa-save"></i> Сохранить</button>
+                            <button type="button" class="btn-danger" id="cancelPointsBtn">Отмена</button>
+                        </div>
+                    </form>
                 </div>
-                <div class="points-item">
-                    <span>Активность в соцсетях</span>
-                    <span class="points-value">+10 баллов</span>
-                </div>
-                <div class="points-item">
-                    <span>Участие в фанатских акциях</span>
-                    <span class="points-value">+30 баллов</span>
-                </div>
-                <div class="points-item">
-                    <span>Публикация впечатлений</span>
-                    <span class="points-value">+15 баллов</span>
-                </div>
-                <div class="points-item">
-                    <span>Участие в событиях</span>
-                    <span class="points-value">+20-100 баллов</span>
+                
+                <div class="points-list" id="pointsList">
+                    <!-- Правила системы баллов будут добавляться сюда -->
                 </div>
             </div>
         </div>
@@ -1185,8 +1225,15 @@
             const cancelEditBtn = document.getElementById('cancelEditBtn');
             const body = document.body;
             
-            // Список администраторов
-            const adminUsers = ['admin', 'Администратор', 'administrator'];
+            // Добавляем переменные для управления системой баллов
+            const pointsSystem = document.querySelector('.points-system');
+            const pointsList = document.getElementById('pointsList');
+            const pointsForm = document.getElementById('pointsForm');
+            const pointsIdInput = document.getElementById('pointsId');
+            const pointsDescriptionInput = document.getElementById('pointsDescription');
+            const pointsValueInput = document.getElementById('pointsValue');
+            const addPointsBtn = document.getElementById('addPointsBtn');
+            const cancelPointsBtn = document.getElementById('cancelPointsBtn');
             
             // Проверка авторизации при загрузке
             checkAuthStatus();
@@ -1231,13 +1278,6 @@
                     return;
                 }
                 
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав администратора. Обратитесь к системному администратору.');
-                    return;
-                }
-                
                 body.classList.remove('mode-user');
                 body.classList.add('mode-admin');
                 adminModeBtn.classList.add('active');
@@ -1267,18 +1307,10 @@
                     body.classList.add('logged-in');
                     userNameElement.textContent = currentUser;
                     loadUserData();
-                    
-                    // Скрываем кнопку администратора для обычных пользователей
-                    if (!adminUsers.includes(currentUser)) {
-                        adminModeBtn.style.display = 'none';
-                    } else {
-                        adminModeBtn.style.display = 'flex';
-                    }
                 } else {
                     body.classList.remove('logged-in');
                     body.classList.add('logged-out');
                     userNameElement.textContent = 'Гость';
-                    adminModeBtn.style.display = 'flex'; // Показываем для неавторизованных
                 }
             }
             
@@ -1289,19 +1321,6 @@
                 userNameElement.textContent = username;
                 updateCurrentUserInList();
                 loadUserData();
-                
-                // Скрываем кнопку администратора для обычных пользователей
-                if (!adminUsers.includes(username)) {
-                    adminModeBtn.style.display = 'none';
-                } else {
-                    adminModeBtn.style.display = 'flex';
-                // Автоматически переходим в режим пользователя после входа
-                    body.classList.remove('mode-admin');
-                    body.classList.add('mode-user');
-                    userModeBtn.classList.add('active');
-                    adminModeBtn.classList.remove('active');
-                    updateModeIndicators();
-                }
                 
                 // После входа автоматически переключаемся в режим пользователя
                 body.classList.remove('mode-admin');
@@ -1317,7 +1336,6 @@
                 body.classList.add('logged-out');
                 userNameElement.textContent = 'Гость';
                 resetUserData();
-                adminModeBtn.style.display = 'flex'; // Показываем для неавторизованных
                 
                 // После выхода переключаемся в режим пользователя
                 body.classList.remove('mode-admin');
@@ -1333,6 +1351,7 @@
                 loadUsers();
                 loadEvents();
                 loadPrizes();
+                loadPointsRules();
                 updateStats();
                 updateRatingTable();
             }
@@ -1352,6 +1371,7 @@
             loadUsers();
             loadEvents();
             loadPrizes();
+            loadPointsRules();
             updateStats();
             updateRatingTable();
             
@@ -1372,13 +1392,6 @@
                     return;
                 }
                 
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав для управления призами');
-                    return;
-                }
-                
                 if (prizeId) {
                     // Редактирование существующего приза
                     updatePrize(prizeId, prizePlace, prizeIcon, prizeTitle, prizeDescription);
@@ -1394,13 +1407,6 @@
             
             // Обработчик кнопки добавления приза
             addPrizeBtn.addEventListener('click', function() {
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав для добавления призов');
-                    return;
-                }
-                
                 // Показать форму добавления приза
                 prizeForm.style.display = 'grid';
                 addPrizeBtn.style.display = 'none';
@@ -1413,6 +1419,51 @@
                 addPrizeBtn.style.display = 'block';
                 prizeForm.reset();
                 prizeIdInput.value = '';
+            });
+            
+            // Обработчик кнопки добавления правила баллов
+            addPointsBtn.addEventListener('click', function() {
+                // Показать форму добавления правила
+                pointsSystem.classList.add('points-editing');
+                pointsIdInput.value = '';
+                pointsDescriptionInput.value = '';
+                pointsValueInput.value = '50';
+            });
+            
+            // Обработчик кнопки отмены редактирования правил баллов
+            cancelPointsBtn.addEventListener('click', function() {
+                pointsSystem.classList.remove('points-editing');
+                pointsForm.reset();
+                pointsIdInput.value = '';
+            });
+            
+            // Обработчик формы правил баллов
+            pointsForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const pointsId = pointsIdInput.value;
+                const description = pointsDescriptionInput.value;
+                const pointsValue = parseInt(pointsValueInput.value);
+                
+                // Проверка авторизации для управления правилами баллов
+                if (!localStorage.getItem('currentUser')) {
+                    alert('Для управления системой баллов необходимо войти в профиль');
+                    loginModal.style.display = 'flex';
+                    return;
+                }
+                
+                if (pointsId) {
+                    // Редактирование существующего правила
+                    updatePointsRule(pointsId, description, pointsValue);
+                } else {
+                    // Создание нового правила
+                    addPointsRule(description, pointsValue);
+                }
+                
+                // Скрыть форму после сохранения
+                pointsSystem.classList.remove('points-editing');
+                pointsForm.reset();
+                pointsIdInput.value = '';
             });
             
             // Обработчик формы дневника
@@ -1469,13 +1520,6 @@
                     return;
                 }
                 
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав для создания событий');
-                    return;
-                }
-                
                 if (eventId) {
                     // Редактирование существующего события
                     updateEvent(eventId, eventName, eventDate, eventPoints, eventDescription);
@@ -1498,13 +1542,6 @@
                     userNameElement.textContent = newName.trim();
                     updateCurrentUserInList();
                     updateRatingTable();
-                    
-                    // Обновляем отображение кнопки администратора
-                    if (!adminUsers.includes(newName.trim())) {
-                        adminModeBtn.style.display = 'none';
-                    } else {
-                        adminModeBtn.style.display = 'flex';
-                    }
                 }
             });
             
@@ -1514,19 +1551,6 @@
                 if (!localStorage.getItem('currentUser')) {
                     alert('Для управления пользователями необходимо войти в профиль');
                     loginModal.style.display = 'flex';
-                    return;
-                }
-                
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав для управления пользователями');
-                    return;
-                }
-                
-                // Проверка режима администратора
-                if (!body.classList.contains('mode-admin')) {
-                    alert('Для управления пользователями необходимо перейти в режим администратора');
                     return;
                 }
                 
@@ -1546,12 +1570,6 @@
             userForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
-                // Проверка режима администратора
-                if (!body.classList.contains('mode-admin')) {
-                    alert('Для управления пользователями необходимо быть в режиме администратора');
-                    return;
-                }
-                
                 const id = userIdInput.value || Date.now();
                 const name = userNameInput.value;
                 const points = parseInt(userPointsInput.value);
@@ -1560,6 +1578,7 @@
                 userModal.style.display = 'none';
             });
             
+            // Функции для работы с призами
             function addPrize(place, icon, title, description) {
                 const prize = {
                     id: Date.now(),
@@ -1609,13 +1628,6 @@
             }
             
             function editPrize(id) {
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав для редактирования призов');
-                    return;
-                }
-                
                 const prizes = JSON.parse(localStorage.getItem('fanPrizes')) || [];
                 const prize = prizes.find(p => p.id == id);
                 
@@ -1633,13 +1645,6 @@
             }
             
             function deletePrize(id) {
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав для удаления призов');
-                    return;
-                }
-                
                 if (confirm('Вы уверены, что хотите удалить этот приз?')) {
                     let prizes = JSON.parse(localStorage.getItem('fanPrizes')) || [];
                     prizes = prizes.filter(p => p.id != id);
@@ -1651,8 +1656,6 @@
             function displayPrizes() {
                 const prizes = JSON.parse(localStorage.getItem('fanPrizes')) || [];
                 const isAdminMode = body.classList.contains('mode-admin');
-                const currentUser = localStorage.getItem('currentUser');
-                const isAdminUser = adminUsers.includes(currentUser);
                 
                 // Если призов нет, создаем стандартные
                 if (prizes.length === 0) {
@@ -1679,7 +1682,7 @@
                             <h3>${prize.place}: ${prize.title}</h3>
                             <p>${prize.description}</p>
                         </div>
-                        ${isAdminMode && isAdminUser ? `
+                        ${isAdminMode ? `
                         <div class="prize-actions">
                             <button class="prize-action-btn edit-prize" data-id="${prize.id}">
                                 <i class="fas fa-edit"></i>
@@ -1694,7 +1697,7 @@
                 });
                 
                 // Добавляем обработчики для кнопок редактирования и удаления
-                if (isAdminMode && isAdminUser) {
+                if (isAdminMode) {
                     document.querySelectorAll('.edit-prize').forEach(btn => {
                         btn.addEventListener('click', function() {
                             const prizeId = parseInt(this.getAttribute('data-id'));
@@ -1715,6 +1718,136 @@
                 displayPrizes();
             }
             
+            // Функции для работы с системой баллов
+            function addPointsRule(description, pointsValue) {
+                const rule = {
+                    id: Date.now(),
+                    description: description,
+                    points: pointsValue
+                };
+                
+                // Получение существующих правил
+                let pointsRules = JSON.parse(localStorage.getItem('fanPointsRules')) || [];
+                
+                // Добавление нового правила
+                pointsRules.push(rule);
+                
+                // Сохранение в localStorage
+                localStorage.setItem('fanPointsRules', JSON.stringify(pointsRules));
+                
+                // Отображение правил
+                displayPointsRules();
+            }
+            
+            function updatePointsRule(id, description, pointsValue) {
+                let pointsRules = JSON.parse(localStorage.getItem('fanPointsRules')) || [];
+                const ruleIndex = pointsRules.findIndex(rule => rule.id == id);
+                
+                if (ruleIndex !== -1) {
+                    pointsRules[ruleIndex] = {
+                        id: parseInt(id),
+                        description: description,
+                        points: pointsValue
+                    };
+                    
+                    localStorage.setItem('fanPointsRules', JSON.stringify(pointsRules));
+                    displayPointsRules();
+                }
+            }
+            
+            function editPointsRule(id) {
+                const pointsRules = JSON.parse(localStorage.getItem('fanPointsRules')) || [];
+                const rule = pointsRules.find(rule => rule.id == id);
+                
+                if (rule) {
+                    pointsIdInput.value = rule.id;
+                    pointsDescriptionInput.value = rule.description;
+                    pointsValueInput.value = rule.points;
+                    
+                    // Показываем форму редактирования
+                    pointsSystem.classList.add('points-editing');
+                    
+                    // Прокрутка к форме
+                    document.querySelector('.points-system').scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+            
+            function deletePointsRule(id) {
+                if (confirm('Вы уверены, что хотите удалить это правило?')) {
+                    let pointsRules = JSON.parse(localStorage.getItem('fanPointsRules')) || [];
+                    pointsRules = pointsRules.filter(rule => rule.id != id);
+                    localStorage.setItem('fanPointsRules', JSON.stringify(pointsRules));
+                    displayPointsRules();
+                }
+            }
+            
+            function displayPointsRules() {
+                const pointsRules = JSON.parse(localStorage.getItem('fanPointsRules')) || [];
+                const isAdminMode = body.classList.contains('mode-admin');
+                
+                // Если правил нет, создаем стандартные
+                if (pointsRules.length === 0) {
+                    const defaultRules = [
+                        { id: 1, description: "Посещение домашнего матча", points: 50 },
+                        { id: 2, description: "Посещение выездного матча", points: 100 },
+                        { id: 3, description: "Активность в соцсетях", points: 10 },
+                        { id: 4, description: "Участие в фанатских акциях", points: 30 },
+                        { id: 5, description: "Публикация впечатлений", points: 15 },
+                        { id: 6, description: "Участие в событиях", points: 50 }
+                    ];
+                    localStorage.setItem('fanPointsRules', JSON.stringify(defaultRules));
+                    return displayPointsRules();
+                }
+                
+                // Очистка контейнера
+                pointsList.innerHTML = '';
+                
+                // Отображение каждого правила
+                pointsRules.forEach(rule => {
+                    const ruleElement = document.createElement('div');
+                    ruleElement.className = 'points-item';
+                    ruleElement.innerHTML = `
+                        <div>
+                            <span>${rule.description}</span>
+                            <span class="points-value">+${rule.points} баллов</span>
+                        </div>
+                        ${isAdminMode ? `
+                        <div class="points-item-actions">
+                            <button class="action-btn edit-points-rule" data-id="${rule.id}">
+                                <i class="fas fa-edit"></i> Редактировать
+                            </button>
+                            <button class="action-btn btn-danger delete-points-rule" data-id="${rule.id}">
+                                <i class="fas fa-trash"></i> Удалить
+                            </button>
+                        </div>
+                        ` : ''}
+                    `;
+                    pointsList.appendChild(ruleElement);
+                });
+                
+                // Добавляем обработчики для кнопок редактирования и удаления
+                if (isAdminMode) {
+                    document.querySelectorAll('.edit-points-rule').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const ruleId = parseInt(this.getAttribute('data-id'));
+                            editPointsRule(ruleId);
+                        });
+                    });
+                    
+                    document.querySelectorAll('.delete-points-rule').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const ruleId = parseInt(this.getAttribute('data-id'));
+                            deletePointsRule(ruleId);
+                        });
+                    });
+                }
+            }
+            
+            function loadPointsRules() {
+                displayPointsRules();
+            }
+            
+            // Остальные функции без изменений
             function addEntry(date, match, result, mood, content) {
                 const currentUser = localStorage.getItem('currentUser');
                 const entry = {
@@ -1844,13 +1977,6 @@
             }
             
             function editEvent(id) {
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав для редактирования событий');
-                    return;
-                }
-                
                 const events = JSON.parse(localStorage.getItem('fanEvents')) || [];
                 const event = events.find(e => e.id == id);
                 
@@ -1867,13 +1993,6 @@
             }
             
             function deleteEvent(eventId) {
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав для удаления событий');
-                    return;
-                }
-                
                 if (confirm('Вы уверены, что хотите удалить это событие?')) {
                     let events = JSON.parse(localStorage.getItem('fanEvents')) || [];
                     events = events.filter(e => e.id != eventId);
@@ -1969,7 +2088,6 @@
                 const events = JSON.parse(localStorage.getItem('fanEvents')) || [];
                 const currentUser = localStorage.getItem('currentUser');
                 const isAdminMode = body.classList.contains('mode-admin');
-                const isAdminUser = adminUsers.includes(currentUser);
                 
                 // Сортировка событий по дате (ближайшие сверху)
                 events.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -1979,7 +2097,7 @@
                 
                 if (events.length === 0) {
                     eventsList.innerHTML = '<p>Событий пока нет. ' + 
-                        (isAdminMode && isAdminUser ? 'Создайте первое событие с помощью формы выше!' : 'Администратор пока не добавил события.') + 
+                        (isAdminMode ? 'Создайте первое событие с помощью формы выше!' : 'Администратор пока не добавил события.') + 
                         '</p>';
                     return;
                 }
@@ -2017,7 +2135,7 @@
                                 <i class="fas fa-sign-in-alt"></i> Войдите для участия
                             </button>
                             `}
-                            ${isAdminMode && isAdminUser && isAuthor ? `
+                            ${isAdminMode && isAuthor ? `
                             <button class="action-btn edit-event" data-id="${event.id}">
                                 <i class="fas fa-edit"></i> Редактировать
                             </button>
@@ -2039,7 +2157,7 @@
                 });
                 
                 // Добавляем обработчики для кнопок редактирования и удаления (только в режиме администратора)
-                if (isAdminMode && isAdminUser && currentUser) {
+                if (isAdminMode && currentUser) {
                     document.querySelectorAll('.edit-event').forEach(btn => {
                         btn.addEventListener('click', function() {
                             const eventId = parseInt(this.getAttribute('data-id'));
@@ -2191,8 +2309,6 @@
             function displayUsers() {
                 const users = JSON.parse(localStorage.getItem('fanUsers')) || [];
                 const currentUser = localStorage.getItem('currentUser');
-                const isAdminMode = body.classList.contains('mode-admin');
-                const isAdminUser = adminUsers.includes(currentUser);
                 
                 // Очистка контейнера
                 usersList.innerHTML = '';
@@ -2219,7 +2335,6 @@
                                 <div class="user-points">${user.points} баллов</div>
                             </div>
                         </div>
-                        ${isAdminMode && isAdminUser ? `
                         <div class="user-actions">
                             <button class="action-btn edit-user" data-id="${user.id}">
                                 <i class="fas fa-edit"></i>
@@ -2228,37 +2343,27 @@
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
-                        ` : ''}
                     `;
                     usersList.appendChild(userElement);
                 });
                 
-                // Добавляем обработчики для кнопок редактирования и удаления (только в режиме администратора)
-                if (isAdminMode && isAdminUser) {
-                    document.querySelectorAll('.edit-user').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const userId = this.getAttribute('data-id');
-                            editUser(userId);
-                        });
+                // Добавляем обработчики для кнопок редактирования и удаления
+                document.querySelectorAll('.edit-user').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const userId = this.getAttribute('data-id');
+                        editUser(userId);
                     });
-                    
-                    document.querySelectorAll('.delete-user').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const userId = this.getAttribute('data-id');
-                            deleteUser(userId);
-                        });
+                });
+                
+                document.querySelectorAll('.delete-user').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const userId = this.getAttribute('data-id');
+                        deleteUser(userId);
                     });
-                }
+                });
             }
             
             function editUser(id) {
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав для редактирования пользователей');
-                    return;
-                }
-                
                 const users = JSON.parse(localStorage.getItem('fanUsers')) || [];
                 const user = users.find(u => u.id == id);
                 
@@ -2272,13 +2377,6 @@
             }
             
             function deleteUser(id) {
-                // Проверка прав администратора
-                const currentUser = localStorage.getItem('currentUser');
-                if (!adminUsers.includes(currentUser)) {
-                    alert('У вас нет прав для удаления пользователей');
-                    return;
-                }
-                
                 if (confirm('Вы уверены, что хотите удалить этого пользователя?')) {
                     let users = JSON.parse(localStorage.getItem('fanUsers')) || [];
                     users = users.filter(u => u.id != id);
